@@ -1,0 +1,14 @@
+{
+  "fields": [
+    {"name": "FECHA DE REALIZACIÓN DEL EXÁMEN", "pattern": ""},
+    {"name": "TIPO DE EXÁMEN MÉDICO OCUPACIONAL", "pattern": ""},
+    {"name": "Apellidos y Nombres", "pattern": ""},
+    {"name": "Documento de Identificación", "pattern": ""},
+    {"name": "Cargo", "pattern": ""},
+    {"name": "CONCEPTO DE APTITUD OCUPACIONAL", "pattern": ""},
+    {"name": "Exámenes practicados (base del concepto)", "pattern": ""},
+    {"name": "RECOMENDACIONES MÉDICAS", "pattern": ""},
+    {"name": "RECOMENDACIONES OCUPACIONALES", "pattern": ""},
+    {"name": "HÁBITOS Y ESTILO DE VIDA SALUDABLES", "pattern": ""}
+  ]
+}
