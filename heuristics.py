@@ -47,15 +47,25 @@ def h_find_nombre_y_doc(text: str) -> Tuple[str, str]:
         "DATOS DEL TRABAJADOR",
         "DATOS DEL TRABAJADOR/ASPIRANTE",
         "DATOS DEL TRABAJADOR O ASPIRANTE",
+        "DATOS PERSONALES",
+        "INFORMACION DEL TRABAJADOR",
+        "INFORMACIÓN DEL TRABAJADOR",
     ]
+    
     stop_markers = [
         "CONCEPTO DE APTITUD", "CONCEPTO MÉDICO OCUPACIONAL", "CONCEPTO MEDICO OCUPACIONAL",
         "CARGO", "EPS", "ARL", "AFP", "NIT", "DIRECCIÓN", "DIRECCION",
         "EXÁMENES", "EXAMENES", "OBSERVACIONES", "RECOMENDACIONES",
+        "DATOS DEL EMPLEADOR", "DATOS DE LA EMPRESA", "DATOS EMPLEADOR", "DATOS EMPRESA",
     ]
 
-    # Documento flexible (CC/C.C./TI/CE/PT) + número
-    doc_re = re.compile(r"\b(C\.?C\.?|TI|CE|PT)\s+([0-9A-Z.\- ]{5,})\b", re.I)
+    # Documento flexible (CC/C.C./TI/CE/PT/DNI/CÉDULA) + número con prefijo opcional
+    doc_re = re.compile(
+        r"\b(C\.?C\.?|T\.?I\.?|C\.?E\.?|P\.?T\.?|D\.?N\.?I\.?|C[EÉ]DULA)\s*"
+        r"(?:N[°º]?|No\.?)?\s*"
+        r"([0-9][0-9 .]{3,}[0-9])\b",
+        re.I,
+    )
 
     # Palabras típicas de cargo — si aparecen, NO es nombre
     cargo_tokens = {
@@ -89,7 +99,29 @@ def h_find_nombre_y_doc(text: str) -> Tuple[str, str]:
             start_idx = i
             break
     if start_idx == -1:
-        return "", ""  # no hay bloque claro → evitar falsos positivos
+        # Fallback: escanear toda la página buscando documento y nombre cercano
+        for i, ln in enumerate(lines):
+            m = doc_re.search(ln)
+            if not m:
+                continue
+            doc = f"{m.group(1).upper().replace('.', '')} {clean(m.group(2))}"
+            for up in range(1, 7):
+                j = i - up
+                if j < 0:
+                    break
+                cand = lines[j].strip()
+                if looks_like_upper_name(cand):
+                    return titlecase(clean(cand)), doc
+            for dn in range(1, 5):
+                j = i + dn
+                if j >= len(lines):
+                    break
+                cand = lines[j].strip()
+                if looks_like_upper_name(cand):
+                    return titlecase(clean(cand)), doc
+            # Si hay documento pero ningún nombre convincente
+            return "", doc
+        return "", ""  # no se encontró documento
 
     end_idx = len(lines)
     for j in range(start_idx + 1, len(lines)):
@@ -108,7 +140,8 @@ def h_find_nombre_y_doc(text: str) -> Tuple[str, str]:
                 if 0 <= j < len(block):
                     m = doc_re.search(block[j])
                     if m:
-                        return f"{m.group(1).upper().replace('.', '')} {clean(m.group(2))}"
+                        doc_type = m.group(1).upper().replace('.', '').replace('É', 'E')
+                        return f"{doc_type} {clean(m.group(2))}"
         return ""
 
     # A) Rótulo explícito
@@ -121,12 +154,13 @@ def h_find_nombre_y_doc(text: str) -> Tuple[str, str]:
                     doc = find_doc_near(k)
                     return name, doc
 
-    # B) Nombre + doc misma línea
+    # B) Nombre + doc en la misma línea
     for i, ln in enumerate(block):
-        m = re.search(r"^([A-ZÁÉÍÓÚÑ ]{6,}).*?\b(C\.?C\.?|TI|CE|PT)\s+([0-9A-Z.\- ]{5,})", ln)
+        m = re.search(rf"^([A-ZÁÉÍÓÚÑ ]{{6,}}).*?{doc_re.pattern}", ln, re.I)
         if m and looks_like_upper_name(m.group(1)):
             name = titlecase(clean(m.group(1)))
-            doc = f"{m.group(2).upper().replace('.', '')} {clean(m.group(3))}"
+            doc_type = m.group(2).upper().replace('.', '').replace('É', 'E')
+            doc = f"{doc_type} {clean(m.group(3))}"
             return name, doc
 
     # C) Doc en una línea → buscar nombre cerca
@@ -134,7 +168,8 @@ def h_find_nombre_y_doc(text: str) -> Tuple[str, str]:
         m = doc_re.search(ln)
         if not m:
             continue
-        doc = f"{m.group(1).upper().replace('.', '')} {clean(m.group(2))}"
+        doc_type = m.group(1).upper().replace('.', '').replace('É', 'E')
+        doc = f"{doc_type} {clean(m.group(2))}"
         for up in range(1, 7):
             j = i - up
             if j < 0:

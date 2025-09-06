@@ -21,7 +21,12 @@ class FieldTable(QtWidgets.QTableWidget):
         self.verticalHeader().setVisible(False)
         self.setAlternatingRowColors(True)
         self.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
-        self.setEditTriggers(QtWidgets.QAbstractItemView.DoubleClicked | QtWidgets.QAbstractItemView.SelectedClicked | QtWidgets.QAbstractItemView.EditKeyPressed)
+        self.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
+        self.setEditTriggers(
+            QtWidgets.QAbstractItemView.DoubleClicked
+            | QtWidgets.QAbstractItemView.SelectedClicked
+            | QtWidgets.QAbstractItemView.EditKeyPressed
+        )
 
     def add_row(self, name: str = "", pattern: str = ""):
         r = self.rowCount()
@@ -34,6 +39,30 @@ class FieldTable(QtWidgets.QTableWidget):
         for r in rows:
             self.removeRow(r)
 
+    def edit_selected(self):
+        row = self.currentRow()
+        if row < 0:
+            return
+
+        name_item = self.item(row, self.COL_NAME)
+        pat_item = self.item(row, self.COL_PATTERN)
+        name = name_item.text() if name_item else ""
+        pattern = pat_item.text() if pat_item else ""
+
+        name, ok = QtWidgets.QInputDialog.getText(
+            self, "Editar campo", "Nombre:", text=name
+        )
+        if not ok:
+            return
+
+        pattern, ok = QtWidgets.QInputDialog.getText(
+            self, "Editar campo", "Patrón (regex opcional):", text=pattern
+        )
+        if not ok:
+            return
+
+        self.setItem(row, self.COL_NAME, QtWidgets.QTableWidgetItem(name))
+        self.setItem(row, self.COL_PATTERN, QtWidgets.QTableWidgetItem(pattern))
     def to_rules(self) -> List[FieldRule]:
         rules = []
         for r in range(self.rowCount()):
@@ -92,15 +121,24 @@ class MainWindow(QtWidgets.QMainWindow):
         btns = QtWidgets.QHBoxLayout()
         self.btn_add = QtWidgets.QPushButton("+ Añadir campo")
         self.btn_del = QtWidgets.QPushButton("– Quitar seleccionado")
+        self.btn_edit = QtWidgets.QPushButton("✎ Editar campo")
         self.btn_preset = QtWidgets.QPushButton("Plantilla Ocupacional")
         self.btn_load_json = QtWidgets.QPushButton("Cargar preset JSON…")
         self.btn_save_json = QtWidgets.QPushButton("Guardar preset JSON…")
         self.btn_add.clicked.connect(lambda: self.tbl.add_row("Nuevo campo", ""))
         self.btn_del.clicked.connect(self.tbl.remove_selected)
+        self.btn_edit.clicked.connect(self.tbl.edit_selected)
         self.btn_preset.clicked.connect(self._load_default_template)
         self.btn_load_json.clicked.connect(self._load_json)
         self.btn_save_json.clicked.connect(self._save_json)
-        for b in (self.btn_add, self.btn_del, self.btn_preset, self.btn_load_json, self.btn_save_json):
+        for b in (
+            self.btn_add,
+            self.btn_del,
+            self.btn_edit,
+            self.btn_preset,
+            self.btn_load_json,
+            self.btn_save_json,
+        ):
             btns.addWidget(b)
         btns.addStretch(1)
         v_fields.addLayout(btns)
